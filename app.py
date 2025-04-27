@@ -1,71 +1,71 @@
+from flask import Flask, render_template, redirect, url_for
+import pandas as pd
 import random
-import pandas
-from flask import Flask, render_template, request, redirect, url_for
+
 app = Flask(__name__)
 
-dataframe_pokemon = pandas.read_csv('pokemon.csv')
-punti = 100
-punti_tot = punti
-probabilità = {
-    'Comune': 0.7,
-    'Non Comune': 0.2,
-    'Rara': 0.09,
-    'Ultra Rara': 0.01
-}
+dati_pokemon = pd.read_csv('pokemon.csv')
+credito_giocatore = 100
+raccolta = []
 
+distribuzione_rarita = ['Comune'] * 70 + ['Non Comune'] * 20 + ['Rara'] * 9 + ['Ultra Rara'] * 1
 
+def genera_pacchetto():
+    bustina = []
+    credito_bonus = 0
+    carte_estratte = 0
+    while carte_estratte < 5:
+        rarita_estratta = random.choice(distribuzione_rarita)
+        carte_possibili = dati_pokemon[dati_pokemon['Rarità'] == rarita_estratta]
+        if len(carte_possibili) > 0:
+            carta_scelta = carte_possibili.iloc[random.randint(0, len(carte_possibili) - 1)]
+            bustina.append(carta_scelta.to_dict())
+            if rarita_estratta == 'Comune':
+                credito_bonus += 1
+            elif rarita_estratta == 'Non Comune':
+                credito_bonus += 5
+            elif rarita_estratta == 'Rara':
+                credito_bonus += 10
+            elif rarita_estratta == 'Ultra Rara':
+                credito_bonus += 20
+            carte_estratte += 1
+    return bustina, credito_bonus
 
+def salva_raccolta():
+    raccolta_df = pd.DataFrame(raccolta)
+    raccolta_df.to_csv('collezione.csv', index=False)
 
-@app.route("/apri_pacchetto", methods=["GET", "POST"])
-def apri_pacchetto():
-    global punti_tot
-    pacchetto = []
-    punti_guadagnati = 0 
-    if punti >=10:
-        punti_tot -= 10
-        for i in range(5):                 
-            rarita_casuale = random.choices(list(probabilità.keys()),weights=probabilità.values(),k=1)[0]
-                
-            carta = dataframe_pokemon[dataframe_pokemon['Rarità'] == rarita_casuale].sample(n=1).iloc[0]
-            pacchetto.append(carta)
+def carica_raccolta():
+    global raccolta
+    try:
+        raccolta = pd.read_csv('collezione.csv').to_dict(orient='records')
+    except FileNotFoundError:
+        raccolta = []
 
-            if rarita_casuale == 'Comune':
-                punti_guadagnati += 2
-            elif rarita_casuale == 'Non Comune':
-                punti_guadagnati += 5
-            elif rarita_casuale == 'Rara':
-                punti_guadagnati += 10
-            elif rarita_casuale == 'Ultra Rara':
-                punti_guadagnati += 20
-               
-        punti_tot += punti_guadagnati        
-        print(f"Hai guadagnato {punti_guadagnati} punti. Ora hai {punti_tot} punti.")
-        stampa_carte(pacchetto)       
-        salva_collezione(pacchetto)
-    else:
-        print("non hai abbastanza punti")
-    return pacchetto, punti_tot
+carica_raccolta()
 
+@app.route('/')
+def pagina_principale():
+    return render_template('index.html', credito_giocatore=credito_giocatore, raccolta=raccolta)
 
-@app.route("/salva_collezione", methods=["GET", "POST"])
-def salva_collezione(pacchetto):
-    collezione = pandas.DataFrame(pacchetto)
-    collezione.to_csv('carte_trovate.csv')
-    print("Collezione salvata")
+@app.route('/genera_pacchetto', methods=['POST'])
+def genera_pacchetto_route():
+    global credito_giocatore, raccolta
+    if credito_giocatore >= 10:
+        credito_giocatore -= 10
+        bustina, credito_bonus = genera_pacchetto()
+        raccolta.extend(bustina)
+        salva_raccolta()
+        credito_giocatore += credito_bonus
+    return redirect(url_for('pagina_principale'))
 
+@app.route('/visualizza_raccolta', methods=['GET'])
+def visualizza_raccolta_route():
+    return render_template('collezione.html', raccolta=raccolta)
 
-
-@app.route("/stampa_carte", methods=["GET", "POST"])
-def stampa_carte(pacchetto):
-    print("Carte trovate nel pacchetto:")
-    for carta in pacchetto:
-        print("-", carta)
-
-
-@app.route("/mostra_tutto", methods=["GET", "POST"])
-def mostra_intera_collezione():
-    collezione_completa = pandas.read_csv('carte_trovate.csv')
-    print(collezione_completa)
+@app.route('/visualizza_credito', methods=['GET'])
+def visualizza_credito_route():
+    return render_template('punti.html', credito_giocatore=credito_giocatore)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True)

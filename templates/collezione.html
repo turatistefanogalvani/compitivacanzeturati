@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>La tua Raccolta Pokémon</title>
+</head>
+<body>
+    <h1>La tua Raccolta Pokémon</h1>
+
+    {% if raccolta %}
+        <ul>
+        {% for carta in raccolta %}
+            <li>{{ carta['Nome'] }} - Rarità: {{ carta['Rarità'] }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>Non hai ancora carte nella tua raccolta.</p>
+    {% endif %}
+
+    <a href="{{ url_for('pagina_principale') }}">Torna alla Home</a>
+</body>
+</html>
